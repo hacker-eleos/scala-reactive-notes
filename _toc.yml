@@ -1,0 +1,7 @@
+- file: intro.md
+- part: Programming Reactive Systems
+  numbered: true
+  chapters:
+    - file: notebooks/week1/week1_1.ipynb
+    - file: notebooks/week1/week1_2.ipynb
+

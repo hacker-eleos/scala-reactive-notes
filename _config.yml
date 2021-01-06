@@ -1,0 +1,19 @@
+# Book settings
+title: Programming Reactive Systems
+author: Vikram Bhatt
+logo: logo.png
+
+latex:
+  latex_documents:
+    targetname: book.tex
+
+parse:
+  myst_extended_syntax: true
+
+html:
+  favicon: images/favicon.ico
+  comments:
+    hypothesis: true
+
+execute:
+  execute_notebooks: cache
