@@ -4,4 +4,7 @@
   chapters:
     - file: notebooks/week1/week1_1.ipynb
     - file: notebooks/week1/week1_2.ipynb
+    - file: notebooks/week2/week2_2.ipynb
+    - file: notebooks/week2/week2_3.ipynb
+
 
