@@ -20,5 +20,6 @@ execute:
 
 repository:
   url: https://github.com/hacker-eleos/scala-reactive-notes
+  branch: main  # An optional branch, defaults to `master`
 html:
   use_edit_page_button: true
