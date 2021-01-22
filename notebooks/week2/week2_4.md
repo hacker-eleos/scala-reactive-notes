@@ -20,9 +20,9 @@ content, extract links and follow them, bounded by a maximum depth; all links en
 * Write a Receptionist managing one Controller per request.
 
 
-There will be one actor which we call receptionist. This one is responsible for accepting incoming requests. Request comes from client. Receptionist is responsible for noting down the client, request and telling someone else to do the job. In web, links can be cycles. When we see a link we already visited, we need to stop or we run into endless loop. One such person will remember the links we visited. Let's call such actor controller. Controller remembers what's visited and still needs visiting. It would be better to have someone else to have the job of visiting. Let's call that actor Getter. Getter visits a URL retrieve the documents, extract the links which are in the document and tell controller what it has found. The controller, then spawn other getters to visit the new links and so on. 
+There will be one actor which we call receptionist. This one is responsible for accepting incoming requests. Request comes from client. Receptionist is responsible for noting down the client, request and telling someone else to do the job. In web, links can be cycles. When we see a link we already visited, we need to stop or we run into endless loop. One such person will remember the links we visited. Let's call such actor controller. Controller remembers what's visited and still needs visiting. It would be better to have someone else to have the job of visiting. Let's call that actor Getter. Getter visits a URL retrieve the documents, extract the links which are in the document and tell controller what it has found. The controller can, then spawn other getters to visit the new links and so on. 
 
-To recap, let's put the messages which will be used to achieve this.  The client sends `get(url)` request for a URL, the Receptionist will create a controller and send it a `check(url, depth)`. The controller then tell Getter to retrive what is at the URL `Get(url)`, and the Getter then reply with possibly multiple links of type `link` and finally `done`. All links found in URL should be treated quickly and can be visited parallel. So there will be multiple Getters. The controller needs to keep track which URL was encountered at which depth. Once the depth is exhausted the final result is communicated to the receptionist, keep track which client send URL and send the answer. 
+To recap, let's put the messages which will be used to achieve this.  The client sends `get(url)` request for a URL, the Receptionist will create a Controller and send it a `check(url, depth)` message. The controller then tell Getter to retrive what is at the URL `get(url)`, and the Getter then reply with possibly multiple links `link` and finally `done`. All links found in URL should be treated quickly and can be visited parallel. So there will be multiple Getters. The controller needs to keep track which URL was encountered at which depth. Once the depth is exhausted the final result is communicated to the receptionist, kept track which client send URL and send the answer. 
 
 Let's start simple.
 ```scala
@@ -59,7 +59,7 @@ else p.failure(BadStatus(response.getStatusCode))
 p.future
 }
 ```
-First we stop at `execute` on `f`. This gives us back a future. We want to adapt this into Scala future so we construct a promise of String. The future returned by `execute` is not a `java.util.concurrent` Future, it has some added functionality, namely you can added a listener. When the future is completed, a runnable is registered on the listener, which will run. We require executor to run it. We get future from Promise `p.future`. `AsyncHttpClient` is a Java library using Java and it's own futures. Basically we mapped from listenable `AsnycHttpClient` future to Scala futures.
+First we stop at `execute` on `f`. This gives us back a future. We want to adapt this into Scala future so we construct a promise of String. The future returned by `execute` is not a `java.util.concurrent` Future, it has some added functionality, namely you can added a listener. When the future is completed, a runnable is registered on the listener, which will run. We require executor to run it. We get future from Promise `p.future`. `AsyncHttpClien` is a Java library using Java and it's own futures. Basically we mapped from listenable `AsnycHttpClient` future to Scala futures.
 
 If you have event based source for something and you want to wait single shot event in this case, it is best to wrap it in future and expose it as API.  
 
@@ -107,9 +107,10 @@ context.stop(self)
 }
 }
 ```
-`context` has a field `parent`. Remember every actor has exactly one parent which created it. If we get a string `body` we use `findLinks` to get iterator, and for each link we send them as message to parent actor. Once we communicated all the links to parent, we stop, which means sending parent done message and stopping itself. In case of failure, we stop. 
+`context` has a field `parent`. Remember every actor has exactly one parent which created it. If we get a string `body` we use `findLinks` to get iterator, and for each link we send them as message to parent actor. Once we communicated all the links to parent, we stop. Which means sending parent done message and stopping itself. In case of failure we stop. 
 
-> Actors are run by a dispatcher—potentially shared—which can also run Futures.
+> Actors are run by a dispatcher—potentially shared—which can also
+run Futures.
 
 ## Actor-Based Logging
 
