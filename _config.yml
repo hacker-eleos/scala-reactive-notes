@@ -23,3 +23,4 @@ repository:
   branch: main  # An optional branch, defaults to `master`
 html:
   use_edit_page_button: true
+  use_issues_button: true
