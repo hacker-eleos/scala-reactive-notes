@@ -2,11 +2,11 @@
 - part: Programming Reactive Systems
   numbered: true
   chapters:
-    - file: notebooks/week1/week1_1.ipynb
-    - file: notebooks/week1/week1_2.ipynb
-    - file: notebooks/week2/week2_2.ipynb
-    - file: notebooks/week2/week2_3.ipynb
-    - file: notebooks/week2/week2_4.ipynb
-    - file: notebooks/week2/week2_5.ipynb
+    - file: notebooks/week1/week1_1.md
+    - file: notebooks/week1/week1_2.md
+    - file: notebooks/week2/week2_2.md
+    - file: notebooks/week2/week2_3.md
+    - file: notebooks/week2/week2_4.md
+    - file: notebooks/week2/week2_5.md
 
 
