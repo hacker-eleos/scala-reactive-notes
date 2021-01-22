@@ -22,7 +22,7 @@ content, extract links and follow them, bounded by a maximum depth; all links en
 
 There will be one actor which we call receptionist. This one is responsible for accepting incoming requests. Request comes from client. Receptionist is responsible for noting down the client, request and telling someone else to do the job. In web, links can be cycles. When we see a link we already visited, we need to stop or we run into endless loop. One such person will remember the links we visited. Let's call such actor controller. Controller remembers what's visited and still needs visiting. It would be better to have someone else to have the job of visiting. Let's call that actor Getter. Getter visits a URL retrieve the documents, extract the links which are in the document and tell controller what it has found. The controller can, then spawn other getters to visit the new links and so on. 
 
-To recap, let's put the messages which will be used to achieve this.  The client sends `get(url)` request for a URL, the Receptionist will create a Controller and send it a `check(url, depth)` message. The controller then tell Getter to retrive what is at the URL `get(url)`, and the Getter then reply with possibly multiple links `link` and finally `done`. All links found in URL should be treated quickly and can be visited parallel. So there will be multiple Getters. The controller needs to keep track which URL was encountered at which depth. Once the depth is exhausted the final result is communicated to the receptionist, kept track which client send URL and send the answer. 
+To recap, let's put the messages which will be used to achieve this.  The client sends `get(url)` request for a URL, the Receptionist will create a Controller and send it a `check(url, depth)` message. The controller then tell Getter to retrive what is at the URL `get(url)`, and the Getter then reply with possibly multiple links and finally `done`. All links found in URL should be treated quickly and can be visited parallel. So there will be multiple Getters. The controller needs to keep track which URL was encountered at which depth. Once the depth is exhausted the final result is communicated to the receptionist, kept track which client send URL and send the answer. 
 
 Let's start simple.
 ```scala
@@ -74,11 +74,12 @@ import org.jsoup.Jsoup
 import import scala.collection.JavaConverters._
 def findLinks(body: String): Iterator[String] = {
 val document = Jsoup.parse(body, url)
-val links = document.select(”a[href]”)
+val links = document.select("a[href]")
 for {
 link <- links.iterator().asScala
 } yield link.absUrl("href")
 }
+
 ```
 ```scala
 
@@ -136,7 +137,7 @@ var cache = Set.empty[String]
 var children = Set.empty[ActorRef]
 def receive = {
 case Check(url, depth) =>
-log.debug(”{} checking {}”, depth, url)
+log.debug("{} checking {}", depth, url)
 if (!cache(url) && depth > 0)
 children += context.actorOf(Props(new Getter(url, depth - 1)))
 cache += url
