@@ -85,6 +85,20 @@ link <- links.iterator().asScala
 
 class Getter(url: String, depth: Int) extends Actor {
 implicit val exec = context.dispatcher
+val future = WebClient.get(url)
+future onComplete {
+case Success(body) => self ! body
+case Failure(err) => self ! Status.Failure(err)
+}
+...
+}
+```
+`WebClient` fetch us the body of url, and returns future. When the future completes it can be successful and failure. In order to make actors aware of this, we retreive the body and  wrap it in `Success` otherwise to `Failure`. This pattern is so common, Akka includes it a pattern as `pipeTo(self)`
+
+```scala
+
+class Getter(url: String, depth: Int) extends Actor {
+implicit val exec = context.dispatcher
 WebClient get url pipeTo self
 ...
 }
@@ -228,8 +242,127 @@ case Timeout => children foreach (_ ! Getter.Abort)
 }
 }
 ```
-TSecond variant takes actor reference and message. The message will be delivered after the time elapsed ot the actor reference. In this we reiceive `TimeOut`, and we can abort children.
-Similar issues can if you mix futures and actor.
+The second variant takes actor reference and message. The message will be delivered after the time elapsed ot the actor reference. In this we reiceive `TimeOut`, and we can abort children.
+
+Similar problems occur when we mix futures with actors. 
+See the below code. `Cache` receives message `Get(url)`, if the url is not present in cache, it calls the `WebClien` and returns a future, we can use `foreach` on future when the body is reached and update the cache, and reply to send er the body recevied. Otherwise read from cache map and reply to sender. 
+
+```scala
+
+class Cache extends Actor {
+var cache = Map.empty[String, String]
+def receive = {
+case Get(url) =>
+if (cache contains url) sender ! cache(url)
+else
+WebClient get url foreach { body =>
+cache += url -> body
+sender ! body
+}
+}
+}
+```
+
+ But the problem here is access to `cache += url -> body` happens outside to actor's scope. If the actor runs at same time, they both access cache variable and there might be clashes. Fortunately we know how to fix this. 
+ 
+```scala
+class Cache extends Actor {
+var cache = Map.empty[String, String]
+def receive = {
+case Get(url) =>
+if (cache contains url) sender ! cache(url)
+else {
+val client = sender
+WebClient get url map (Result(client, url, _)) pipeTo self
+}
+case Result(client, url, body) =>
+cache += url -> body
+client ! body
+}
+}
+```
+
+We get the result we map it to `Result` and in this result will contain, body, url, and the sender of the original request. Once we get `Result` message we can safely update cache and update the client. But the code you give to `map` runs it in the future and that means that sender will be accessed in the future. It's problematic. Sender is giving you `ActorRef` which corrrespond to actor which sends you message which is being is currently being proccesed. But when the future runs the actor might do something different. Therefore, we must cache the sender and store it local value, and when you refer local value it contains value itself, not the method how to attain it. 
+
+```scala
+class Cache extends Actor {
+var cache = Map.empty[String, String]
+def receive = {
+case Get(url) =>
+if (cache contains url) sender ! cache(url)
+else {
+val client = sender
+WebClient get url map (Result(client, url, _)) pipeTo self
+}
+case Result(client, url, body) =>
+cache += url -> body
+client ! body
+}
+}
+```
+> Do not refer to actor state from code running asynchronously.
+
+## The Receptionist
+
+Receptionist always accept a request but will make sure only one web traversal is running at a time. Thus receptionist can be in two states. 
+`waiting` or `running`. When `waiting` we start traversal and switch to `running`. On `running` state when we get message we cannot start immediatly. SO append it to queue and keep running. When the result from controller is arrived ship to client and run next job in queue.
+
+```scala
+class Receptionist extends Actor {
+def receive = waiting
+val waiting: Receive = {
+// upon Get(url) start a traversal and become running
+}
+def running(queue: Vector[Job]): Receive = {
+// upon Get(url) apppend that to queue and keep running
+// upon Controller.Result(links) ship that to client
+// and run next job from queue (if any)
+}
+}
+```
+
+```scala
+case class Job(client: ActorRef, url: String)
+var reqNo = 0
+def runNext(queue: Vector[Job]): Receive = {
+reqNo += 1
+if (queue.isEmpty) waiting
+else {
+val controller = context.actorOf(Props[Controller], s"c$reqNo")
+controller ! Controller.Check(queue.head.url, 2)
+running(queue)
+}
+}
+```
+`reqNo` permeates all states but does not qualitatively change behavior: an
+example for when using var may benefit.
+
+
+```scala
+def enqueueJob(queue: Vector[Job], job: Job): Receive = {
+if (queue.size > 3) {
+sender ! Failed(job.url)
+running(queue)
+} else running(queue :+ job)
+}
+```
+
+Finally 
+```scala
+
+val waiting: Receive = {
+case Get(url) => context.become(runNext(Vector(Job(sender, url))))
+}
+def running(queue: Vector[Job]): Receive = {
+case Controller.Result(links) =>
+val job = queue.head
+job.client ! Result(job.url, links)
+context.stop(sender)
+context.become(runNext(queue.tail))
+case Get(url) =>
+context.become(enqueueJob(queue, Job(sender, url)))
+}
+```
 
 
 ```scala

@@ -2,7 +2,8 @@
 
 Testing actors is integral to development. 
 
-Test can only verify externally observable effects. Actors only interact through message passing there is no way to reach into them and to check their current behaviour without sending a message.
+Tests can only verify externally observable effects. 
+Actors only interact through message passing there is no way to reach into them and to check their current behaviour without sending a message.
 
 See the class 
 ```scala
@@ -60,14 +61,49 @@ Inside the class the `ActorSystem` is available with name `system`. The trait `I
 
 ## Testing Actors with Dependencies
 
-Some Actor might have external dependencies. For example the need to talk to database, or web service. Traditional solution is to use dependecny injection. You can use Akka together with Spring. One simple solution is to add overridable factory methods.
+Some Actor might have external dependencies. For example the actor need to talk to database, or web service. Traditional solution is to use dependecny injection. You can use Akka together with Spring. One simple solution is to add overridable factory methods.
 
-Let's look at `Receptionist`. 
-
+Let's look at `Receptionist`. The Receptionist needs to create a controller in,
+under certain circumstances, and if we hard wire the props controller in the actor of call, we cannot stub it out in a test.
+What we can simply do is to add a
+method, `controllerProps`, which gives these props with the known behavior.
+And this allows us to override
+this method in a test to create a different actor which, for
+example, does not really go to the Web to retrieve the links.
 
 ```scala
 
+class Receptionist extends Actor {
+def controllerProps: Props = Props[Controller]
+def receive = waiting
+val waiting: Receive = {
+    ...
+    val controller = context.actorOf(controllerProps, "controller")
+// upon Get(url) start a traversal and become running
+}
+def running(queue: Vector[Job]): Receive = {
+// upon Get(url) apppend that to queue and keep running
+// upon Controller.Result(links) ship that to client
+// and run next job from queue (if any)
+}
 ```
+
+Also, talking about that, if we look at the Getter, the Getter used WebClient get URL,
+if we want to switch out the WebClient
+from the real one which I've renamed AsyncWebClient here.
+To a fake one, we can just insert this method as shown, and
+then the test can override it.
+```scala
+class Getter extends Actor{
+    ...
+    def client: WebClient = AsyncWebClient
+    client get url pipeTo self
+    ...
+
+```
+
+
+
 
 
 
